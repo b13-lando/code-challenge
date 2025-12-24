@@ -16,7 +16,13 @@ export class ItemRepository {
   }
 
   // List items with optional filters
-  async findAll(filters?: { is_active?: boolean }) {
+  async findAll(
+    filters?: { is_active?: boolean },
+    page: number = 0,
+    pageSize: number = 5,
+    sortField?: string,
+    sortOrder?: "asc" | "desc"
+  ) {
     const conditions: string[] = [];
     const values: any[] = [];
 
@@ -25,22 +31,56 @@ export class ItemRepository {
       conditions.push(`is_active = $${values.length}`);
     }
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
+    // Sorting
+    let orderClause = "";
+    if (sortField) {
+      // sanitize column name to prevent SQL injection
+      const allowedSortFields = [
+        "name",
+        "description",
+        "is_active",
+        "created_at",
+        "updated_at",
+      ];
+      if (allowedSortFields.includes(sortField)) {
+        const order = sortOrder === "desc" ? "DESC" : "ASC";
+        orderClause = `ORDER BY ${sortField} ${order}`;
+      }
+    }
+
+    // Pagination: OFFSET = page * pageSize
+    const offset = page * pageSize;
+    const limitClause = `LIMIT $${values.length + 1} OFFSET $${
+      values.length + 2
+    }`;
+    values.push(pageSize, offset);
+
+    // Main query
     const result = await pool.query(
-      `SELECT * FROM items ${whereClause}`,
+      `SELECT * FROM items ${whereClause} ${orderClause} ${limitClause}`,
       values
     );
 
-    return result.rows;
+    // Get total count for pagination
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM items ${whereClause}`,
+      values.slice(0, values.length - 2) // exclude limit/offset for count
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    return {
+      items: result.rows,
+      total,
+    };
   }
 
   // Get a single item by ID
   async findById(id: string) {
-    const result = await pool.query(
-      `SELECT * FROM items WHERE id = $1`,
-      [id]
-    );
+    const result = await pool.query(`SELECT * FROM items WHERE id = $1`, [id]);
     return result.rows[0];
   }
 

@@ -18,13 +18,31 @@ export class ItemController {
   // List items with optional filter ?is_active=true/false
   static async list(req: Request, res: Response) {
     try {
+      // Parse filter
       const is_active =
         req.query.is_active !== undefined
           ? req.query.is_active === "true"
           : undefined;
 
-      const items = await service.list({ is_active });
-      res.json(items);
+      // Parse pagination params
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 0;
+      const pageSize = req.query.pageSize
+        ? parseInt(req.query.pageSize as string, 10)
+        : 5;
+
+      // Parse sorting params
+      const sortField = req.query.sortField as string | undefined;
+      const sortOrder = req.query.sortOrder === "desc" ? "desc" : "asc"; // default asc
+
+      const items = await service.list(
+        { is_active },
+        page,
+        pageSize,
+        sortField,
+        sortOrder
+      );
+
+      res.json(items); // returns { items: [...], total: number }
     } catch (error: any) {
       console.error("Error listing items:", error);
       res.status(500).json({ message: "Internal server error" });

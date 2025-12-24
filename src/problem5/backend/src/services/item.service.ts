@@ -10,8 +10,14 @@ export class ItemService {
   }
 
   // List items with optional filters
-  async list(filters?: { is_active?: boolean }) {
-    return this.repo.findAll(filters);
+  async list(
+    filters?: { is_active?: boolean },
+    page: number = 0,
+    pageSize: number = 5,
+    sortField?: string,
+    sortOrder?: "asc" | "desc"
+  ) {
+    return this.repo.findAll(filters, page, pageSize, sortField, sortOrder);
   }
 
   // Get a single item by ID
